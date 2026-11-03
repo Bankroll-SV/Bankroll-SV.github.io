@@ -6,55 +6,34 @@
   const HEADERS = {
     fecha: "date",
     date: "date",
-    deporte: "sport",
-    sport: "sport",
-    competicion: "competition",
-    competencia: "competition",
-    competition: "competition",
-    liga: "competition",
-    evento: "event",
-    event: "event",
-    partido: "event",
-    tipo: "betType",
-    tipo_apuesta: "betType",
-    tipo_de_apuesta: "betType",
-    bettype: "betType",
-    market: "betType",
-    cuota: "odds",
-    odds: "odds",
-    momio: "odds",
-    stake: "stake",
-    importe: "stake",
-    cantidad: "stake",
-    resultado: "result",
-    result: "result",
-    importe_cashout: "cashoutAmount",
-    cashout: "cashoutAmount",
-    cobrado: "cashoutAmount",
-    importe_cobrado: "cashoutAmount",
-    casa: "bookmaker",
-    bookmaker: "bookmaker",
-    casa_apuestas: "bookmaker",
-    casa_de_apuestas: "bookmaker",
-    book: "bookmaker",
+    titulo: "title",
+    title: "title",
+    modalidad: "kind",
+    kind: "kind",
+    buy_in: "buyIn",
+    buyin: "buyIn",
+    buy: "buyIn",
+    retiro: "cashOut",
+    cash_out: "cashOut",
+    cashout: "cashOut",
+    descripcion: "notes",
     notas: "notes",
     notes: "notes",
     nota: "notes",
+    resultado: "outcome",
+    result: "outcome",
     beneficio: "profit",
     profit: "profit",
   };
 
-  const REQUIRED = ["date", "sport", "event", "betType", "odds", "stake", "result", "bookmaker"];
+  const REQUIRED = ["date", "title", "kind", "buyIn", "cashOut"];
 
   const REQUIRED_LABELS = {
     date: "fecha",
-    sport: "deporte",
-    event: "evento",
-    betType: "tipo",
-    odds: "cuota",
-    stake: "stake",
-    result: "resultado",
-    bookmaker: "casa",
+    title: "titulo",
+    kind: "modalidad",
+    buyIn: "buy in",
+    cashOut: "retiro",
   };
 
   function isSepRow(row) {
@@ -156,12 +135,11 @@
     return Number(n).toFixed(2).replace(".", ",");
   }
 
-  function resultWord(result) {
-    if (result === "won") return "ganada";
-    if (result === "lost") return "perdida";
-    if (result === "void") return "nula";
-    if (result === "cashout") return "cashout";
-    return "";
+  function resultWord(bet) {
+    const key = BT.calc.outcomeKey(bet);
+    if (key === "profit") return "profit";
+    if (key === "loss") return "loss";
+    return "cero";
   }
 
   function parseCsv(text) {
@@ -197,7 +175,7 @@
     rows.slice(1).forEach(function (row) {
       const input = {};
       fields.forEach(function (field, index) {
-        if (!field || field === "profit") return;
+        if (!field || field === "profit" || field === "outcome") return;
         input[field] = row[index] != null ? String(row[index]).trim() : "";
       });
       const prepared = BT.calc.prepareBet(input);
@@ -213,21 +191,17 @@
 
   function toCsv(bets) {
     const delimiter = ";";
-    const header = ["fecha", "deporte", "competicion", "evento", "tipo", "cuota", "stake", "resultado", "importe_cashout", "casa", "notas", "beneficio"];
+    const header = ["fecha", "titulo", "modalidad", "buy_in", "retiro", "descripcion", "resultado", "beneficio"];
     const lines = [header.join(delimiter)];
     BT.calc.sortBets(bets || []).forEach(function (b) {
       const cells = [
         b.date,
-        b.sport,
-        b.competition || "",
-        b.event,
-        b.betType,
-        decimal(b.odds),
-        decimal(b.stake),
-        resultWord(b.result),
-        b.result === "cashout" ? decimal(b.cashoutAmount) : "",
-        b.bookmaker,
+        b.title,
+        b.kind,
+        decimal(b.buyIn),
+        decimal(b.cashOut),
         b.notes || "",
+        resultWord(b),
         decimal(BT.calc.profit(b)),
       ];
       lines.push(cells.map(function (cell) {
@@ -241,15 +215,10 @@
     const sample = {
       id: "plantilla",
       date: "2026-11-02",
-      sport: "Fútbol",
-      competition: "LaLiga",
-      event: "Real Madrid – Barcelona",
-      betType: "1X2",
-      odds: 1.85,
-      stake: 25,
-      result: "won",
-      cashoutAmount: null,
-      bookmaker: "Bet365",
+      title: "Cash game",
+      kind: "poker",
+      buyIn: 100,
+      cashOut: 140,
       notes: "Ejemplo. Borra esta fila antes de importar la tuya.",
       createdAt: "2026-11-02T12:00:00.000Z",
     };
@@ -259,7 +228,7 @@
   function toBackup(data) {
     return JSON.stringify(
       {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         settings: data.settings,
         bets: data.bets,

@@ -2,9 +2,6 @@
 
 (function () {
   const PAGE = 15;
-  const SPORTS = ["Fútbol", "Baloncesto", "Tenis", "Béisbol", "Fútbol americano", "Hockey", "MMA", "Boxeo", "eSports", "Motor", "Ciclismo", "Rugby"];
-  const TYPES = ["1X2", "Ganador", "Más/menos", "Hándicap", "Ambos marcan", "Doble oportunidad", "Draw no bet", "Marcador exacto", "Parlay", "Prop", "Especial"];
-  const BOOKS = ["Bet365", "Betfair", "Pinnacle", "Winamax", "Codere", "Sportium", "Betano", "William Hill", "PokerStars"];
 
   const COPY = {
     dashboard: ["Panel", "Resultado, riesgo y curva de capital"],
@@ -31,7 +28,7 @@
   let toastTimer = 0;
 
   function blankFilters() {
-    return { from: "", to: "", sport: "", betType: "", bookmaker: "", result: "", q: "" };
+    return { from: "", to: "", kind: "", result: "", q: "" };
   }
 
   function uid() {
@@ -66,21 +63,6 @@
     return null;
   }
 
-  function uniques(key) {
-    const seen = {};
-    const values = [];
-    state.bets.forEach(function (bet) {
-      const value = bet[key];
-      if (!value || seen[value]) return;
-      seen[value] = true;
-      values.push(value);
-    });
-    values.sort(function (a, b) {
-      return a.localeCompare(b, "es");
-    });
-    return values;
-  }
-
   function sanitizeLoaded(bets) {
     const clean = [];
     (bets || []).forEach(function (raw) {
@@ -95,14 +77,8 @@
   }
 
   function sanitizeFilters() {
-    [
-      ["sport", "sport"],
-      ["betType", "betType"],
-      ["bookmaker", "bookmaker"],
-    ].forEach(function (pair) {
-      const values = uniques(pair[1]);
-      if (state.filters[pair[0]] && values.indexOf(state.filters[pair[0]]) === -1) state.filters[pair[0]] = "";
-    });
+    if (state.filters.kind && BT.calc.KINDS.indexOf(state.filters.kind) === -1) state.filters.kind = "";
+    if (state.filters.result && ["profit", "loss", "even"].indexOf(state.filters.result) === -1) state.filters.result = "";
   }
 
   function toast(message) {
@@ -120,7 +96,7 @@
     state.stash = null;
     try {
       BT.storage.save({
-        version: 1,
+        version: 2,
         settings: {
           startingBankroll: state.settings.startingBankroll,
           currency: state.settings.currency,
@@ -200,8 +176,13 @@
 
     if (state.view === "dashboard" && !empty) {
       renderKpis(global, scoped, filtered);
-      renderPerf(document.getElementById("table-sports"), BT.calc.groupBy(scopedBets, function (b) { return b.sport; }, state.settings.startingBankroll), "Deporte", scoped, false);
-      renderPerf(document.getElementById("table-types"), BT.calc.groupBy(scopedBets, function (b) { return b.betType; }, state.settings.startingBankroll), "Tipo", scoped, false);
+      renderPerf(
+        document.getElementById("table-kinds"),
+        BT.calc.groupBy(scopedBets, function (b) { return BT.format.kindLabel(b.kind); }, state.settings.startingBankroll),
+        "Modalidad",
+        scoped,
+        false
+      );
       renderRecent(scopedBets);
       renderLegend(scoped);
       document.getElementById("equity-note").textContent = filtered
@@ -209,11 +190,7 @@
         : "Desde el bankroll inicial";
     }
     if (state.view === "apuestas") renderBets(scopedBets);
-    if (state.view === "analisis") {
-      renderStreaks(scopedBets);
-      renderPerf(document.getElementById("table-books"), BT.calc.groupBy(scopedBets, function (b) { return b.bookmaker; }, state.settings.startingBankroll), "Casa", scoped, false);
-      renderPerf(document.getElementById("table-odds"), BT.calc.oddsBuckets(scopedBets, state.settings.startingBankroll), "Rango", scoped, true);
-    }
+    if (state.view === "analisis") renderStreaks(scopedBets);
     renderCharts(scopedBets, filtered, empty);
     syncFilters();
     syncCompare();
@@ -269,7 +246,7 @@
       },
       {
         label: "Beneficio",
-        title: "Suma del resultado neto de las apuestas visibles.",
+        title: "Suma de retiro menos buy in en las sesiones visibles.",
         value: BT.format.signedMoney(scoped.profit, cur),
         tone: BT.format.tone(scoped.profit),
         note: filtered ? "de la selección" : "historial completo",
@@ -283,24 +260,24 @@
       },
       {
         label: "Yield",
-        title: "Beneficio neto dividido por la suma de stakes, nulas incluidas.",
+        title: "Profit o loss neto dividido por la suma de buy in.",
         value: BT.format.signedPercent(scoped.yield, 2),
         tone: scoped.yield == null ? "flat" : BT.format.tone(scoped.yield),
-        note: scoped.staked > 0 ? "sobre " + BT.format.money(scoped.staked, cur) : "sin stakes",
+        note: scoped.staked > 0 ? "sobre " + BT.format.money(scoped.staked, cur) : "sin buy in",
       },
       {
         label: "Win rate",
-        title: "Aciertos dividido por ganadas más perdidas. Una nula no entra. Un cashout entra según el signo del beneficio.",
+        title: "Sesiones en profit dividido por profit más loss. Un cero no entra.",
         value: BT.format.percent(scoped.winRate, 1),
         tone: "flat",
-        note: scoped.wins + " ganadas · " + scoped.losses + " perdidas",
+        note: scoped.wins + " profit · " + scoped.losses + " loss",
       },
       {
-        label: "Cuota media",
-        title: "Media ponderada por stake. La nota muestra la media simple.",
-        value: BT.format.odds(scoped.avgOddsWeighted),
+        label: "Buy in medio",
+        title: "Buy in medio de las sesiones visibles.",
+        value: scoped.avgBuyIn == null ? "—" : BT.format.money(scoped.avgBuyIn, cur),
         tone: "flat",
-        note: scoped.avgOdds == null ? "sin cuotas" : "simple " + BT.format.odds(scoped.avgOdds),
+        note: scoped.count ? scoped.count + " sesiones" : "sin sesiones",
       },
       {
         label: "Drawdown",
@@ -312,11 +289,11 @@
         note: scoped.maxDrawdownPct != null ? BT.format.percent(scoped.maxDrawdownPct, 1) + " del pico" : "sin caída",
       },
       {
-        label: "Apuestas",
-        title: "Número de apuestas en la selección.",
+        label: "Sesiones",
+        title: "Número de sesiones en la selección.",
         value: String(scoped.count),
         tone: "flat",
-        note: scoped.results.void + " nulas · " + scoped.results.cashout + " cashout",
+        note: scoped.results.even + " en cero",
       },
     ];
 
@@ -363,7 +340,6 @@
           '<td class="num ' + BT.format.tone(row.profit) + '">' + BT.format.signedMoney(row.profit, currency()) + "</td>" +
           '<td class="num ' + (row.yield == null ? "flat" : BT.format.tone(row.yield)) + '">' + BT.format.signedPercent(row.yield, 2) + "</td>" +
           '<td class="num">' + BT.format.percent(row.winRate, 1) + "</td>" +
-          '<td class="num col-tight">' + BT.format.odds(row.avgOddsWeighted) + "</td>" +
           '<td class="col-meter"><span class="meter ' + BT.format.tone(row.profit) + '"><span style="width:' + width + '%"></span></span></td>' +
           "</tr>"
         );
@@ -384,14 +360,12 @@
         BT.format.signedPercent(summary.yield, 2) +
         "</td><td class=\"num\">" +
         BT.format.percent(summary.winRate, 1) +
-        "</td><td class=\"num col-tight\">" +
-        BT.format.odds(summary.avgOddsWeighted) +
         '</td><td class="col-meter"></td></tr></tfoot>'
       : "";
     el.innerHTML =
       '<div class="table-wrap"><table class="data"><thead><tr>' +
       "<th>" + BT.format.esc(nameHeader) + "</th>" +
-      '<th class="num">Apuestas</th><th class="num">Apostado</th><th class="num">Beneficio</th><th class="num">Yield</th><th class="num">Win rate</th><th class="num col-tight">Cuota</th><th class="col-meter" aria-label="Magnitud"></th>' +
+      '<th class="num">Sesiones</th><th class="num">Buy in</th><th class="num">Profit / Loss</th><th class="num">Yield</th><th class="num">Win rate</th><th class="col-meter" aria-label="Magnitud"></th>' +
       "</tr></thead><tbody>" +
       body +
       "</tbody>" +
@@ -408,7 +382,7 @@
     }
     el.innerHTML =
       '<div class="table-wrap"><table class="data"><thead><tr>' +
-      "<th>Fecha</th><th>Evento</th><th class=\"num\">Cuota</th><th class=\"num\">Stake</th><th>Resultado</th><th class=\"num\">Beneficio</th>" +
+      "<th>Fecha</th><th>Título</th><th class=\"num\">Buy in</th><th class=\"num\">Retiro</th><th class=\"num\">Profit / Loss</th>" +
       "</tr></thead><tbody>" +
       rows.map(function (bet) { return betRow(bet, false); }).join("") +
       "</tbody></table></div>";
@@ -416,19 +390,18 @@
 
   function betRow(bet, withExtra) {
     const profit = BT.calc.profit(bet);
-    const sub = [bet.competition, withExtra ? bet.sport : ""].filter(Boolean).join(" · ");
+    const sub = BT.format.kindLabel(bet.kind);
     return (
       '<tr data-id="' + BT.format.esc(bet.id) + '">' +
       "<td>" + BT.format.esc(BT.format.date(bet.date)) + "</td>" +
-      "<td><span class=\"event\"" + (bet.notes ? ' title="' + BT.format.esc(bet.notes) + '"' : "") + ">" + BT.format.esc(bet.event) + "</span>" +
-      (sub ? '<span class="event-sub">' + BT.format.esc(sub) + "</span>" : "") +
+      "<td><span class=\"event\"" + (bet.notes ? ' title="' + BT.format.esc(bet.notes) + '"' : "") + ">" + BT.format.esc(bet.title) + "</span>" +
+      (withExtra ? "" : '<span class="event-sub">' + BT.format.esc(sub) + "</span>") +
       "</td>" +
-      (withExtra ? '<td class="col-opt">' + BT.format.esc(bet.sport) + "</td><td class=\"col-opt\">" + BT.format.esc(bet.betType) + "</td>" : "") +
-      '<td class="num">' + BT.format.odds(bet.odds) + "</td>" +
-      '<td class="num">' + BT.format.money(bet.stake, currency()) + "</td>" +
-      "<td>" + resultHtml(bet.result) + "</td>" +
+      (withExtra ? "<td>" + BT.format.esc(sub) + "</td>" : "") +
+      '<td class="num">' + BT.format.money(bet.buyIn, currency()) + "</td>" +
+      '<td class="num">' + BT.format.money(bet.cashOut, currency()) + "</td>" +
+      (withExtra ? "<td>" + resultHtml(BT.calc.outcomeKey(bet)) + "</td>" : "") +
       '<td class="num ' + BT.format.tone(profit) + '">' + BT.format.signedMoney(profit, currency()) + "</td>" +
-      (withExtra ? '<td class="col-opt">' + BT.format.esc(bet.bookmaker) + "</td>" : "") +
       (withExtra
         ? '<td class="actions"><button type="button" data-action="edit" data-id="' +
           BT.format.esc(bet.id) +
@@ -477,14 +450,12 @@
     }
     const headers = [
       ["date", "Fecha"],
-      ["event", "Evento"],
-      ["sport", "Deporte", "col-opt"],
-      ["betType", "Tipo", "col-opt"],
-      ["odds", "Cuota", "num"],
-      ["stake", "Stake", "num"],
+      ["title", "Título"],
+      ["kind", "Modalidad"],
+      ["buyIn", "Buy in", "num"],
+      ["cashOut", "Retiro", "num"],
       ["result", "Resultado"],
-      ["profit", "Beneficio", "num"],
-      ["bookmaker", "Casa", "col-opt"],
+      ["profit", "Profit / Loss", "num"],
     ];
     el.innerHTML =
       '<div class="table-wrap"><table class="data bets"><thead><tr>' +
@@ -514,9 +485,12 @@
     if (key === "profit") {
       va = BT.calc.profitCents(a);
       vb = BT.calc.profitCents(b);
-    } else if (key === "odds" || key === "stake") {
+    } else if (key === "buyIn" || key === "cashOut") {
       va = Number(a[key]);
       vb = Number(b[key]);
+    } else if (key === "result") {
+      va = BT.calc.outcomeKey(a);
+      vb = BT.calc.outcomeKey(b);
     } else if (key === "date") {
       va = a.date + (a.createdAt || "");
       vb = b.date + (b.createdAt || "");
@@ -533,7 +507,7 @@
     const info = BT.calc.streaks(bets);
     const el = document.getElementById("streaks");
     el.innerHTML =
-      '<header class="card-head"><div><h2>Rachas</h2><p>Las nulas no cortan la racha y no aparecen en la tira.</p></div></header>' +
+      '<header class="card-head"><div><h2>Rachas</h2><p>Un resultado en cero no corta la racha y no aparece en la tira.</p></div></header>' +
       '<div class="streak-grid">' +
       streakStat("Actual", info.current) +
       streakStat("Mejor ganadora", info.longestWin) +
@@ -577,13 +551,12 @@
     const A = BT.calc.summarize(aBets, state.settings.startingBankroll, { relativeDrawdown: true, keepEmpty: true });
     const B = BT.calc.summarize(bBets, state.settings.startingBankroll, { relativeDrawdown: true, keepEmpty: true });
     const rows = [
-      ["Apuestas", String(A.count), String(B.count), signedInt(B.count - A.count), "flat"],
-      ["Apostado", BT.format.money(A.staked, currency()), BT.format.money(B.staked, currency()), BT.format.signedMoney(B.staked - A.staked, currency()), BT.format.tone(B.staked - A.staked)],
-      ["Beneficio", BT.format.signedMoney(A.profit, currency()), BT.format.signedMoney(B.profit, currency()), BT.format.signedMoney(B.profit - A.profit, currency()), BT.format.tone(B.profit - A.profit)],
+      ["Sesiones", String(A.count), String(B.count), signedInt(B.count - A.count), "flat"],
+      ["Buy in", BT.format.money(A.staked, currency()), BT.format.money(B.staked, currency()), BT.format.signedMoney(B.staked - A.staked, currency()), BT.format.tone(B.staked - A.staked)],
+      ["Profit / Loss", BT.format.signedMoney(A.profit, currency()), BT.format.signedMoney(B.profit, currency()), BT.format.signedMoney(B.profit - A.profit, currency()), BT.format.tone(B.profit - A.profit)],
       ["Yield", BT.format.signedPercent(A.yield, 2), BT.format.signedPercent(B.yield, 2), BT.format.points(diff(B.yield, A.yield), 2), toneOrFlat(diff(B.yield, A.yield))],
       ["ROI", BT.format.signedPercent(A.roi, 2), BT.format.signedPercent(B.roi, 2), BT.format.points(diff(B.roi, A.roi), 2), toneOrFlat(diff(B.roi, A.roi))],
       ["Win rate", BT.format.percent(A.winRate, 1), BT.format.percent(B.winRate, 1), BT.format.points(diff(B.winRate, A.winRate), 1), toneOrFlat(diff(B.winRate, A.winRate))],
-      ["Cuota media", BT.format.odds(A.avgOddsWeighted), BT.format.odds(B.avgOddsWeighted), signedOdds(diff(B.avgOddsWeighted, A.avgOddsWeighted)), "flat"],
       ["Drawdown", BT.format.money(A.maxDrawdown, currency()), BT.format.money(B.maxDrawdown, currency()), BT.format.signedMoney(B.maxDrawdown - A.maxDrawdown, currency()), "flat"],
     ];
     el.innerHTML =
@@ -609,14 +582,6 @@
     if (n > 0) return "+" + n;
     if (n < 0) return "−" + Math.abs(n);
     return "0";
-  }
-
-  function signedOdds(n) {
-    if (n == null || !Number.isFinite(n)) return "—";
-    const body = BT.format.odds(Math.abs(n));
-    if (n > 0.0001) return "+" + body;
-    if (n < -0.0001) return "−" + body;
-    return body;
   }
 
   function renderCharts(scopedBets, filtered, empty) {
@@ -654,12 +619,10 @@
   }
 
   function syncFilters() {
-    fillFilter("f-sport", uniques("sport"), "sport");
-    fillFilter("f-type", uniques("betType"), "betType");
-    fillFilter("f-book", uniques("bookmaker"), "bookmaker");
     [
       ["f-from", "from"],
       ["f-to", "to"],
+      ["f-kind", "kind"],
       ["f-result", "result"],
       ["f-q", "q"],
     ].forEach(function (pair) {
@@ -667,19 +630,6 @@
       if (document.activeElement === el) return;
       if (el.value !== state.filters[pair[1]]) el.value = state.filters[pair[1]];
     });
-  }
-
-  function fillFilter(id, values, key) {
-    const el = document.getElementById(id);
-    const current = state.filters[key];
-    el.innerHTML =
-      '<option value="">Todos</option>' +
-      values
-        .map(function (value) {
-          return '<option value="' + BT.format.esc(value) + '">' + BT.format.esc(value) + "</option>";
-        })
-        .join("");
-    if (document.activeElement !== el) el.value = current && values.indexOf(current) !== -1 ? current : "";
   }
 
   function syncCompare() {
@@ -702,40 +652,14 @@
     if (document.activeElement !== select) select.value = state.settings.currency;
   }
 
-  function fillDatalists() {
-    fillDataList("list-sports", SPORTS.concat(uniques("sport")));
-    fillDataList("list-types", TYPES.concat(uniques("betType")));
-    fillDataList("list-books", BOOKS.concat(uniques("bookmaker")));
-  }
-
-  function fillDataList(id, values) {
-    const seen = {};
-    const unique = [];
-    values.forEach(function (value) {
-      if (!value || seen[value]) return;
-      seen[value] = true;
-      unique.push(value);
-    });
-    unique.sort(function (a, b) { return a.localeCompare(b, "es"); });
-    document.getElementById(id).innerHTML = unique
-      .map(function (value) {
-        return '<option value="' + BT.format.esc(value) + '"></option>';
-      })
-      .join("");
-  }
-
   function readForm() {
+    const kind = document.querySelector('#bet-form input[name="kind"]:checked');
     return {
       date: document.getElementById("bet-date").value,
-      sport: document.getElementById("bet-sport").value,
-      competition: document.getElementById("bet-competition").value,
-      event: document.getElementById("bet-event").value,
-      betType: document.getElementById("bet-type").value,
-      bookmaker: document.getElementById("bet-book").value,
-      odds: document.getElementById("bet-odds").value,
-      stake: document.getElementById("bet-stake").value,
-      result: document.getElementById("bet-result").value,
-      cashoutAmount: document.getElementById("bet-cashout").value,
+      title: document.getElementById("bet-title").value,
+      kind: kind ? kind.value : "",
+      buyIn: document.getElementById("bet-buyin").value,
+      cashOut: document.getElementById("bet-cashout").value,
       notes: document.getElementById("bet-notes").value,
     };
   }
@@ -752,19 +676,18 @@
   function updatePreview() {
     const prepared = BT.calc.prepareBet(readForm());
     const el = document.getElementById("profit-preview");
-    const blocked = prepared.errors.odds || prepared.errors.stake || prepared.errors.result || prepared.errors.cashoutAmount;
+    const label = document.getElementById("profit-label");
+    const blocked = prepared.errors.buyIn || prepared.errors.cashOut;
     if (blocked) {
+      label.textContent = "Profit";
       el.textContent = "—";
       el.className = "preview-value flat";
       return;
     }
     const value = BT.calc.profit(prepared.bet);
+    label.textContent = value < 0 ? "Loss" : value > 0 ? "Profit" : "Cero";
     el.textContent = BT.format.signedMoney(value, currency());
     el.className = "preview-value " + BT.format.tone(value);
-  }
-
-  function syncCashout() {
-    document.getElementById("field-cashout").hidden = document.getElementById("bet-result").value !== "cashout";
   }
 
   function openModal(bet) {
@@ -772,32 +695,22 @@
     state.editingId = bet ? bet.id : null;
     document.getElementById("bet-form").reset();
     showErrors({});
-    fillDatalists();
     document.getElementById("modal-title").textContent = bet ? "Editar apuesta" : "Nueva apuesta";
     document.getElementById("btn-delete-bet").hidden = !bet;
     document.getElementById("bet-date").value = bet ? bet.date : BT.format.todayISO();
+    const kind = bet ? bet.kind : "poker";
+    const radio = document.querySelector('#bet-form input[name="kind"][value="' + kind + '"]');
+    if (radio) radio.checked = true;
     if (bet) {
-      document.getElementById("bet-sport").value = bet.sport;
-      document.getElementById("bet-competition").value = bet.competition || "";
-      document.getElementById("bet-event").value = bet.event;
-      document.getElementById("bet-type").value = bet.betType;
-      document.getElementById("bet-book").value = bet.bookmaker;
-      document.getElementById("bet-odds").value = oddsInput(bet.odds);
-      document.getElementById("bet-stake").value = BT.format.plainNumber(bet.stake, 2);
-      document.getElementById("bet-result").value = bet.result;
-      document.getElementById("bet-cashout").value = bet.cashoutAmount == null ? "" : BT.format.plainNumber(bet.cashoutAmount, 2);
+      document.getElementById("bet-title").value = bet.title;
+      document.getElementById("bet-buyin").value = BT.format.plainNumber(bet.buyIn, 2);
+      document.getElementById("bet-cashout").value = BT.format.plainNumber(bet.cashOut, 2);
       document.getElementById("bet-notes").value = bet.notes || "";
     }
-    syncCashout();
     updatePreview();
     document.getElementById("modal").hidden = false;
     lockScroll();
-    document.getElementById("bet-date").focus();
-  }
-
-  function oddsInput(n) {
-    const digits = Math.abs(n * 100 - Math.round(n * 100)) > 0.001 ? 3 : 2;
-    return BT.format.plainNumber(n, digits);
+    document.getElementById("bet-title").focus();
   }
 
   function closeModal() {
@@ -840,7 +753,7 @@
     if (!bet) return;
     const ok = await confirmDialog({
       title: "Borrar apuesta",
-      body: "Se eliminará «" + bet.event + "» del " + BT.format.date(bet.date) + ". Esta acción no se puede deshacer.",
+      body: "Se eliminará «" + bet.title + "» del " + BT.format.date(bet.date) + ". Esta acción no se puede deshacer.",
       confirmLabel: "Borrar",
       danger: true,
     });
@@ -1014,9 +927,7 @@
     state.filters = {
       from: document.getElementById("f-from").value,
       to: document.getElementById("f-to").value,
-      sport: document.getElementById("f-sport").value,
-      betType: document.getElementById("f-type").value,
-      bookmaker: document.getElementById("f-book").value,
+      kind: document.getElementById("f-kind").value,
       result: document.getElementById("f-result").value,
       q: document.getElementById("f-q").value,
     };
@@ -1064,7 +975,7 @@
     else if (action === "sort") {
       const key = el.dataset.sort;
       if (state.sort.key === key) state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
-      else state.sort = { key: key, dir: key === "event" || key === "sport" || key === "betType" || key === "bookmaker" || key === "result" ? "asc" : "desc" };
+      else state.sort = { key: key, dir: key === "title" || key === "kind" || key === "result" ? "asc" : "desc" };
       render();
     } else if (action === "page") {
       state.page += el.dataset.page === "next" ? 1 : -1;
@@ -1111,10 +1022,9 @@
       saveForm();
     });
     document.getElementById("bet-form").addEventListener("input", function () {
-      syncCashout();
       updatePreview();
     });
-    ["f-from", "f-to", "f-sport", "f-type", "f-book", "f-result"].forEach(function (id) {
+    ["f-from", "f-to", "f-kind", "f-result"].forEach(function (id) {
       document.getElementById(id).addEventListener("change", readFiltersFromDom);
     });
     document.getElementById("f-q").addEventListener("input", readFiltersFromDom);

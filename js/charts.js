@@ -5,10 +5,9 @@
   const charts = {};
 
   const DIST = [
-    { key: "won", label: "Ganadas", color: "#f4f4f5" },
-    { key: "lost", label: "Perdidas", color: "#dc2626" },
-    { key: "void", label: "Nulas", color: "#52525b" },
-    { key: "cashout", label: "Cashout", color: "#a1a1aa" },
+    { key: "profit", label: "Profit", color: "#f4f4f5" },
+    { key: "loss", label: "Loss", color: "#dc2626" },
+    { key: "even", label: "Cero", color: "#52525b" },
   ];
 
   function destroy(name) {

@@ -88,19 +88,22 @@
           <div id="filterbar" class="filterbar">
             <label>Desde <input type="date" id="f-from"></label>
             <label>Hasta <input type="date" id="f-to"></label>
-            <label>Deporte <select id="f-sport"></select></label>
-            <label>Tipo <select id="f-type"></select></label>
-            <label>Casa <select id="f-book"></select></label>
+            <label>Modalidad
+              <select id="f-kind">
+                <option value="">Todas</option>
+                <option value="casino">Casino</option>
+                <option value="poker">Poker</option>
+              </select>
+            </label>
             <label>Resultado
               <select id="f-result">
                 <option value="">Todos</option>
-                <option value="won">Ganada</option>
-                <option value="lost">Perdida</option>
-                <option value="void">Nula</option>
-                <option value="cashout">Cashout</option>
+                <option value="profit">Profit</option>
+                <option value="loss">Loss</option>
+                <option value="even">Cero</option>
               </select>
             </label>
-            <label class="grow">Buscar <input type="search" id="f-q" placeholder="Evento, competición o nota"></label>
+            <label class="grow">Buscar <input type="search" id="f-q" placeholder="Título o descripción"></label>
             <button type="button" class="btn btn-ghost" data-action="clear-filters">Limpiar</button>
           </div>
           <p id="scope-line" class="scope-line"></p>
@@ -146,16 +149,10 @@
                   </div>
                 </article>
               </div>
-              <div class="split-2">
-                <article class="card">
-                  <header class="card-head"><h2>Por deporte</h2></header>
-                  <div id="table-sports"></div>
-                </article>
-                <article class="card">
-                  <header class="card-head"><h2>Por tipo de apuesta</h2></header>
-                  <div id="table-types"></div>
-                </article>
-              </div>
+              <article class="card">
+                <header class="card-head"><h2>Casino y poker</h2></header>
+                <div id="table-kinds"></div>
+              </article>
               <article class="card">
                 <header class="card-head">
                   <h2>Últimas apuestas</h2>
@@ -178,16 +175,6 @@
 
           <section id="view-analisis" class="view stack" hidden>
             <article class="card" id="streaks"></article>
-            <div class="split-2">
-              <article class="card">
-                <header class="card-head"><h2>Por casa de apuestas</h2></header>
-                <div id="table-books"></div>
-              </article>
-              <article class="card">
-                <header class="card-head"><h2>Por rango de cuota</h2></header>
-                <div id="table-odds"></div>
-              </article>
-            </div>
             <article class="card">
               <header class="card-head">
                 <div>
@@ -204,7 +191,7 @@
               <header class="card-head">
                 <div>
                   <h2>Comparativa de períodos</h2>
-                  <p>Usa estas fechas. Deporte, tipo, casa, resultado y búsqueda siguen aplicados.</p>
+                  <p>Usa estas fechas. Modalidad, resultado y búsqueda siguen aplicados.</p>
                 </div>
               </header>
               <div class="compare-grid">
@@ -224,20 +211,16 @@
             <details class="defs">
               <summary>Cómo se calculan las métricas</summary>
               <dl>
-                <dt>Ganada</dt>
-                <dd>Stake × (cuota − 1).</dd>
-                <dt>Perdida</dt>
-                <dd>−stake.</dd>
-                <dt>Nula</dt>
-                <dd>Beneficio 0. Suma en el apostado y no entra en el win rate. No corta una racha.</dd>
-                <dt>Cashout</dt>
-                <dd>Importe cobrado − stake. Si el beneficio es positivo cuenta como acierto; si es negativo, como fallo; si es cero, queda fuera del win rate.</dd>
+                <dt>Profit</dt>
+                <dd>Retiro mayor que el buy in.</dd>
+                <dt>Loss</dt>
+                <dd>Retiro menor que el buy in. El importe es retiro − buy in.</dd>
+                <dt>Cero</dt>
+                <dd>Retiro igual al buy in. Entra en el buy in total y no entra en el win rate. No corta una racha.</dd>
                 <dt>Yield</dt>
-                <dd>Beneficio neto / suma de stakes.</dd>
+                <dd>Profit o loss neto / suma de buy in.</dd>
                 <dt>ROI</dt>
-                <dd>Beneficio neto / bankroll inicial. Con filtros, es el aporte de esa selección.</dd>
-                <dt>Cuota media</dt>
-                <dd>Media ponderada por stake. La nota muestra la media simple.</dd>
+                <dd>Profit o loss neto / bankroll inicial. Con filtros, es el aporte de esa selección.</dd>
                 <dt>Drawdown</dt>
                 <dd>Mayor caída desde un pico del capital hasta el valle posterior. En una selección filtrada, la curva parte de cero.</dd>
                 <dt>Bankroll</dt>
@@ -263,7 +246,7 @@
               <header class="card-head">
                 <div>
                   <h2>Exportar</h2>
-                  <p>La columna beneficio del CSV es informativa. Al importar se recalcula.</p>
+                  <p>Las columnas resultado y beneficio del CSV son informativas. Al importar se recalculan con buy in y retiro.</p>
                 </div>
               </header>
               <div class="btn-row">
@@ -294,7 +277,7 @@
               <header class="card-head">
                 <div>
                   <h2>Demostración</h2>
-                  <p>36 apuestas de ejemplo entre agosto y octubre de 2026. Puedes mirarlas sin guardarlas.</p>
+                  <p>12 sesiones de casino y poker. Puedes mirarlas sin guardarlas.</p>
                 </div>
               </header>
               <div class="btn-row">
@@ -330,54 +313,32 @@
             <input id="bet-date" data-field="date" type="date" required>
             <span class="field-error" data-error-for="date"></span>
           </label>
-          <label class="field">Deporte
-            <input id="bet-sport" data-field="sport" list="list-sports" maxlength="40" autocomplete="off" placeholder="Fútbol">
-            <span class="field-error" data-error-for="sport"></span>
+          <label class="field">Título
+            <input id="bet-title" data-field="title" maxlength="80" autocomplete="off" placeholder="Cash game, ruleta">
+            <span class="field-error" data-error-for="title"></span>
           </label>
-          <label class="field">Competición
-            <input id="bet-competition" data-field="competition" maxlength="60" autocomplete="off" placeholder="LaLiga, NBA, ATP">
-            <span class="field-error" data-error-for="competition"></span>
+          <div class="field span-2">
+            <span class="field-label">Modalidad</span>
+            <div class="kind-toggle" role="radiogroup" aria-label="Modalidad">
+              <label><input type="radio" name="kind" value="casino" data-field="kind"> Casino</label>
+              <label><input type="radio" name="kind" value="poker" data-field="kind" checked> Poker</label>
+            </div>
+            <span class="field-error" data-error-for="kind"></span>
+          </div>
+          <label class="field">Buy in
+            <input id="bet-buyin" data-field="buyIn" inputmode="decimal" autocomplete="off" placeholder="100,00">
+            <span class="field-error" data-error-for="buyIn"></span>
           </label>
-          <label class="field">Casa de apuestas
-            <input id="bet-book" data-field="bookmaker" list="list-books" maxlength="40" autocomplete="off" placeholder="Bet365">
-            <span class="field-error" data-error-for="bookmaker"></span>
+          <label class="field">Retiro
+            <input id="bet-cashout" data-field="cashOut" inputmode="decimal" autocomplete="off" placeholder="150,00">
+            <span class="field-error" data-error-for="cashOut"></span>
           </label>
-          <label class="field span-2">Evento
-            <input id="bet-event" data-field="event" maxlength="140" autocomplete="off" placeholder="Real Madrid – Barcelona">
-            <span class="field-error" data-error-for="event"></span>
-          </label>
-          <label class="field">Tipo de apuesta
-            <input id="bet-type" data-field="betType" list="list-types" maxlength="40" autocomplete="off" placeholder="1X2">
-            <span class="field-error" data-error-for="betType"></span>
-          </label>
-          <label class="field">Resultado
-            <select id="bet-result" data-field="result">
-              <option value="">Selecciona</option>
-              <option value="won">Ganada</option>
-              <option value="lost">Perdida</option>
-              <option value="void">Nula</option>
-              <option value="cashout">Cashout</option>
-            </select>
-            <span class="field-error" data-error-for="result"></span>
-          </label>
-          <label class="field">Cuota
-            <input id="bet-odds" data-field="odds" inputmode="decimal" autocomplete="off" placeholder="1,85">
-            <span class="field-error" data-error-for="odds"></span>
-          </label>
-          <label class="field">Stake
-            <input id="bet-stake" data-field="stake" inputmode="decimal" autocomplete="off" placeholder="25,00">
-            <span class="field-error" data-error-for="stake"></span>
-          </label>
-          <label class="field span-2" id="field-cashout" hidden>Importe cobrado
-            <input id="bet-cashout" data-field="cashoutAmount" inputmode="decimal" autocomplete="off" placeholder="Incluye el stake">
-            <span class="field-error" data-error-for="cashoutAmount"></span>
-          </label>
-          <label class="field span-2">Notas
-            <textarea id="bet-notes" data-field="notes" maxlength="500" placeholder="Cierre, línea, motivo del stake"></textarea>
+          <label class="field span-2">Descripción
+            <textarea id="bet-notes" data-field="notes" maxlength="500" rows="2" placeholder="Algo que quieras recordar"></textarea>
             <span class="field-error" data-error-for="notes"></span>
           </label>
           <div class="preview span-2">
-            <span>Beneficio neto</span>
+            <span id="profit-label">Profit</span>
             <strong id="profit-preview" class="preview-value flat">—</strong>
           </div>
           <div class="form-actions span-2">
@@ -405,10 +366,6 @@
   </div>
 
   <div id="toast" class="toast" hidden role="status"></div>
-  <datalist id="list-sports"></datalist>
-  <datalist id="list-types"></datalist>
-  <datalist id="list-books"></datalist>
-
   <script src="vendor/chart.umd.min.js"></script>
   <script src="js/format.js"></script>
   <script src="js/calc.js"></script>

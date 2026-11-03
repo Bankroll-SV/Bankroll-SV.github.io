@@ -3,43 +3,13 @@
 (function (root) {
   const BT = (root.BT = root.BT || {});
 
-  const RESULTS = ["won", "lost", "void", "cashout"];
+  const KINDS = ["casino", "poker"];
 
-  const RESULT_WORDS = {
-    ganada: "won",
-    ganado: "won",
-    ganadora: "won",
-    win: "won",
-    won: "won",
-    w: "won",
-    perdida: "lost",
-    perdido: "lost",
-    perdedora: "lost",
-    lost: "lost",
-    lose: "lost",
-    loss: "lost",
-    l: "lost",
-    nula: "void",
-    nulo: "void",
-    anulada: "void",
-    anulado: "void",
-    void: "void",
-    push: "void",
-    cashout: "cashout",
-    cash: "cashout",
-    cierre: "cashout",
-    cobro: "cashout",
-    cobrada: "cashout",
+  const KIND_WORDS = {
+    casino: "casino",
+    poker: "poker",
+    pokerroom: "poker",
   };
-
-  const BUCKETS = [
-    { label: "≤ 1,50", test: (o) => o <= 1.5 },
-    { label: "1,51 – 1,80", test: (o) => o > 1.5 && o <= 1.8 },
-    { label: "1,81 – 2,20", test: (o) => o > 1.8 && o <= 2.2 },
-    { label: "2,21 – 3,00", test: (o) => o > 2.2 && o <= 3 },
-    { label: "3,01 – 5,00", test: (o) => o > 3 && o <= 5 },
-    { label: "≥ 5,01", test: (o) => o > 5 },
-  ];
 
   function parseNumber(value) {
     if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
@@ -90,98 +60,66 @@
     return year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
   }
 
-  function canonicalResult(value) {
-    if (RESULTS.indexOf(value) !== -1) return value;
+  function canonicalKind(value) {
     const key = String(value || "")
       .trim()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "");
-    return RESULT_WORDS[key] || "";
+    return KIND_WORDS[key] || "";
   }
 
   function profitCents(bet) {
-    const stake = toCents(bet && bet.stake);
-    if (!Number.isFinite(stake)) return 0;
-    if (bet.result === "won") {
-      const odds = parseNumber(bet.odds);
-      if (!Number.isFinite(odds)) return 0;
-      return toCents((stake / 100) * (odds - 1));
-    }
-    if (bet.result === "lost") return -stake;
-    if (bet.result === "void") return 0;
-    if (bet.result === "cashout") {
-      const back = toCents(bet.cashoutAmount);
-      if (!Number.isFinite(back)) return 0;
-      return back - stake;
-    }
-    return 0;
+    const buyIn = toCents(bet && bet.buyIn);
+    const cashOut = toCents(bet && bet.cashOut);
+    if (!Number.isFinite(buyIn) || !Number.isFinite(cashOut)) return 0;
+    return cashOut - buyIn;
   }
 
   function profit(bet) {
     return fromCents(profitCents(bet));
   }
 
+  function outcomeKey(bet) {
+    const p = profitCents(bet);
+    if (p > 0) return "profit";
+    if (p < 0) return "loss";
+    return "even";
+  }
+
   function decisiveOutcome(bet) {
-    if (!bet) return null;
-    if (bet.result === "won") return "win";
-    if (bet.result === "lost") return "loss";
-    if (bet.result === "void") return null;
-    if (bet.result === "cashout") {
-      const p = profitCents(bet);
-      if (p > 0) return "win";
-      if (p < 0) return "loss";
-      return null;
-    }
+    const key = outcomeKey(bet);
+    if (key === "profit") return "win";
+    if (key === "loss") return "loss";
     return null;
   }
 
   function validateBet(bet) {
     const errors = {};
     if (!bet.date || !parseDate(bet.date)) errors.date = "Indica una fecha válida.";
-    if (!String(bet.sport || "").trim()) errors.sport = "Indica el deporte.";
-    if (!String(bet.event || "").trim()) errors.event = "Indica el evento.";
-    if (!String(bet.betType || "").trim()) errors.betType = "Indica el tipo de apuesta.";
-    const odds = parseNumber(bet.odds);
-    if (!Number.isFinite(odds) || odds <= 1) errors.odds = "La cuota decimal debe ser mayor que 1.";
-    const stake = parseNumber(bet.stake);
-    if (!Number.isFinite(stake) || stake <= 0) errors.stake = "El stake debe ser mayor que 0.";
-    if (RESULTS.indexOf(bet.result) === -1) errors.result = "Elige un resultado.";
-    if (bet.result === "cashout") {
-      const back = parseNumber(bet.cashoutAmount);
-      if (!Number.isFinite(back) || back < 0) errors.cashoutAmount = "Indica el importe cobrado, cero o más.";
-    }
-    if (!String(bet.bookmaker || "").trim()) errors.bookmaker = "Indica la casa de apuestas.";
+    if (!String(bet.title || "").trim()) errors.title = "Indica un título.";
+    if (KINDS.indexOf(bet.kind) === -1) errors.kind = "Elige casino o poker.";
+    if (!Number.isFinite(bet.buyIn) || bet.buyIn <= 0) errors.buyIn = "El buy in debe ser mayor que 0.";
+    if (!Number.isFinite(bet.cashOut) || bet.cashOut < 0) errors.cashOut = "El retiro debe ser cero o más.";
     return errors;
   }
 
   function prepareBet(input) {
     const src = input || {};
-    const result = canonicalResult(src.result);
-    const date = parseDate(src.date) || "";
     const bet = {
       id: src.id || null,
-      date: date,
-      sport: String(src.sport || "").trim(),
-      competition: String(src.competition || "").trim(),
-      event: String(src.event || "").trim(),
-      betType: String(src.betType || "").trim(),
-      odds: parseNumber(src.odds),
-      stake: parseNumber(src.stake),
-      result: result,
-      cashoutAmount: result === "cashout" ? parseNumber(src.cashoutAmount) : null,
-      bookmaker: String(src.bookmaker || "").trim(),
+      date: parseDate(src.date) || "",
+      title: String(src.title || "").trim(),
+      kind: canonicalKind(src.kind),
+      buyIn: parseNumber(src.buyIn),
+      cashOut: parseNumber(src.cashOut),
       notes: String(src.notes || "").trim(),
       createdAt: src.createdAt || null,
     };
     const errors = validateBet(bet);
-    if (!errors.odds) bet.odds = Math.round(bet.odds * 1000) / 1000;
-    if (!errors.stake) bet.stake = fromCents(toCents(bet.stake));
-    if (bet.result === "cashout" && !errors.cashoutAmount) {
-      bet.cashoutAmount = fromCents(toCents(bet.cashoutAmount));
-    }
-    if (bet.date) bet.date = parseDate(bet.date);
+    if (!errors.buyIn) bet.buyIn = fromCents(toCents(bet.buyIn));
+    if (!errors.cashOut) bet.cashOut = fromCents(toCents(bet.cashOut));
     return { bet: bet, errors: errors };
   }
 
@@ -200,9 +138,7 @@
     return Boolean(
       filters.from ||
         filters.to ||
-        filters.sport ||
-        filters.betType ||
-        filters.bookmaker ||
+        filters.kind ||
         filters.result ||
         String(filters.q || "").trim()
     );
@@ -221,12 +157,10 @@
     return bets.filter(function (b) {
       if (f.from && b.date < f.from) return false;
       if (f.to && b.date > f.to) return false;
-      if (f.sport && b.sport !== f.sport) return false;
-      if (f.betType && b.betType !== f.betType) return false;
-      if (f.bookmaker && b.bookmaker !== f.bookmaker) return false;
-      if (f.result && b.result !== f.result) return false;
+      if (f.kind && b.kind !== f.kind) return false;
+      if (f.result && outcomeKey(b) !== f.result) return false;
       if (q) {
-        const blob = fold([b.event, b.competition, b.notes, b.sport, b.betType, b.bookmaker].join(" "));
+        const blob = fold([b.title, b.notes, b.kind].join(" "));
         if (blob.indexOf(q) === -1) return false;
       }
       return true;
@@ -236,7 +170,7 @@
   function emptySummary() {
     return {
       count: 0,
-      results: { won: 0, lost: 0, void: 0, cashout: 0 },
+      results: { profit: 0, loss: 0, even: 0 },
       wins: 0,
       losses: 0,
       staked: 0,
@@ -244,8 +178,7 @@
       yield: null,
       roi: null,
       winRate: null,
-      avgOdds: null,
-      avgOddsWeighted: null,
+      avgBuyIn: null,
       maxDrawdown: 0,
       maxDrawdownPct: null,
       bankroll: 0,
@@ -266,13 +199,9 @@
 
     let staked = 0;
     let profitC = 0;
-    const results = { won: 0, lost: 0, void: 0, cashout: 0 };
+    const results = { profit: 0, loss: 0, even: 0 };
     let wins = 0;
     let losses = 0;
-    let oddsSum = 0;
-    let oddsCount = 0;
-    let weighted = 0;
-    let weightStake = 0;
 
     const startCents = opts.relativeDrawdown ? 0 : toCents(startingBankroll || 0) || 0;
     const roiBase = toCents(startingBankroll || 0) || 0;
@@ -282,22 +211,15 @@
     let maxDdPct = null;
 
     ordered.forEach(function (b) {
-      const stake = toCents(b.stake);
-      const safeStake = Number.isFinite(stake) ? stake : 0;
+      const buyIn = toCents(b.buyIn);
+      const safeBuyIn = Number.isFinite(buyIn) ? buyIn : 0;
       const p = profitCents(b);
-      staked += safeStake;
+      staked += safeBuyIn;
       profitC += p;
-      if (results[b.result] != null) results[b.result] += 1;
-      const outcome = decisiveOutcome(b);
-      if (outcome === "win") wins += 1;
-      else if (outcome === "loss") losses += 1;
-      const odds = parseNumber(b.odds);
-      if (Number.isFinite(odds) && odds > 1 && safeStake > 0) {
-        oddsSum += odds;
-        oddsCount += 1;
-        weighted += odds * safeStake;
-        weightStake += safeStake;
-      }
+      const key = outcomeKey(b);
+      if (results[key] != null) results[key] += 1;
+      if (key === "profit") wins += 1;
+      else if (key === "loss") losses += 1;
       equity += p;
       if (equity > peak) peak = equity;
       const dd = peak - equity;
@@ -318,8 +240,7 @@
       yield: staked > 0 ? profitC / staked : null,
       roi: roiBase > 0 ? profitC / roiBase : null,
       winRate: decided > 0 ? wins / decided : null,
-      avgOdds: oddsCount ? oddsSum / oddsCount : null,
-      avgOddsWeighted: weightStake ? weighted / weightStake : null,
+      avgBuyIn: ordered.length ? fromCents(Math.round(staked / ordered.length)) : null,
       maxDrawdown: fromCents(maxDd),
       maxDrawdownPct: maxDdPct,
       bankroll: fromCents(startCents + profitC),
@@ -348,8 +269,8 @@
         label: b.date,
         equity: fromCents(equity),
         delta: fromCents(delta),
-        event: b.event || "Apuesta",
-        result: b.result,
+        event: b.title || "Apuesta",
+        result: outcomeKey(b),
       });
     });
     return points;
@@ -373,34 +294,6 @@
     return rows;
   }
 
-  function oddsBuckets(bets, startingBankroll) {
-    const groups = BUCKETS.map(function (bucket) {
-      return { name: bucket.label, bets: [] };
-    });
-    (bets || []).forEach(function (b) {
-      const odds = parseNumber(b.odds);
-      if (!Number.isFinite(odds)) return;
-      for (let i = 0; i < BUCKETS.length; i += 1) {
-        if (BUCKETS[i].test(odds)) {
-          groups[i].bets.push(b);
-          break;
-        }
-      }
-    });
-    return groups.map(function (group) {
-      return Object.assign({ name: group.name }, summarize(group.bets, startingBankroll, { keepEmpty: true, relativeDrawdown: true }));
-    });
-  }
-
-  function bucketLabel(odds) {
-    const o = parseNumber(odds);
-    if (!Number.isFinite(o)) return null;
-    for (let i = 0; i < BUCKETS.length; i += 1) {
-      if (BUCKETS[i].test(o)) return BUCKETS[i].label;
-    }
-    return null;
-  }
-
   function streaks(bets) {
     const decisive = [];
     sortBets(bets || []).forEach(function (b) {
@@ -409,8 +302,8 @@
       decisive.push({
         outcome: outcome,
         date: b.date,
-        event: b.event,
-        result: b.result,
+        event: b.title,
+        result: outcomeKey(b),
         profit: profit(b),
       });
     });
@@ -478,12 +371,13 @@
   }
 
   BT.calc = {
-    RESULTS: RESULTS,
+    KINDS: KINDS,
     parseNumber: parseNumber,
     toCents: toCents,
     fromCents: fromCents,
     parseDate: parseDate,
-    canonicalResult: canonicalResult,
+    canonicalKind: canonicalKind,
+    outcomeKey: outcomeKey,
     profitCents: profitCents,
     profit: profit,
     decisiveOutcome: decisiveOutcome,
@@ -495,8 +389,6 @@
     summarize: summarize,
     equityCurve: equityCurve,
     groupBy: groupBy,
-    oddsBuckets: oddsBuckets,
-    bucketLabel: bucketLabel,
     streaks: streaks,
     inRange: inRange,
     monthly: monthly,

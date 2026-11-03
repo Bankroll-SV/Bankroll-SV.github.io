@@ -416,10 +416,43 @@ th.sorted button { color: var(--text); }
 
 .result { display: inline-flex; align-items: center; gap: 8px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.result-won { color: var(--text); }
-.result-lost { color: var(--red-2); }
-.result-void { color: var(--faint); }
+.result-won, .result-profit { color: var(--text); }
+.result-lost, .result-loss { color: var(--red-2); }
+.result-void, .result-even { color: var(--faint); }
 .result-cashout { color: #d4d4d4; }
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.kind-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.kind-toggle label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.kind-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.kind-toggle label:has(input:checked) {
+  color: var(--text);
+  border-color: var(--red);
+  background: rgba(220, 38, 38, 0.12);
+}
+#bet-notes { min-height: 64px; }
+#modal .modal-panel { width: min(440px, 100%); }
 
 .meter {
   display: block;

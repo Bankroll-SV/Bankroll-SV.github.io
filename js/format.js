@@ -104,10 +104,15 @@
   }
 
   function resultLabel(result) {
-    if (result === "won") return "Ganada";
-    if (result === "lost") return "Perdida";
-    if (result === "void") return "Nula";
-    if (result === "cashout") return "Cashout";
+    if (result === "profit") return "Profit";
+    if (result === "loss") return "Loss";
+    if (result === "even") return "Cero";
+    return "—";
+  }
+
+  function kindLabel(kind) {
+    if (kind === "casino") return "Casino";
+    if (kind === "poker") return "Poker";
     return "—";
   }
 
@@ -135,6 +140,7 @@
     monthLabel: monthLabel,
     tone: tone,
     resultLabel: resultLabel,
+    kindLabel: kindLabel,
     esc: esc,
   };
 

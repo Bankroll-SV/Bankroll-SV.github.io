@@ -1,4 +1,4 @@
-var CACHE = "blackbook-v1";
+var CACHE = "blackbook-v2";
 var ASSETS = [
   "./",
   "./index.html",
