@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="BLACKBOOK: diario de bankroll. Las apuestas se guardan en este navegador y no se envían a nadie.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BLACKBOOK">
+  <title>BLACKBOOK — Diario de bankroll</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <div class="shell">
+    <aside id="sidebar" class="sidebar">
+      <div class="logo">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <strong>BLACKBOOK</strong>
+          <em>Diario de bankroll</em>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Secciones">
+        <a href="#panel" data-view="dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 15l3.2-3.8L14 14l5-6"/></svg>
+          Panel
+        </a>
+        <a href="#apuestas" data-view="apuestas">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h12M8 12h12M8 17h12"/><path d="M4 7h.01M4 12h.01M4 17h.01"/></svg>
+          Apuestas
+        </a>
+        <a href="#analisis" data-view="analisis">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V10M12 19V5M19 19v-7"/></svg>
+          Análisis
+        </a>
+        <a href="#datos" data-view="datos">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+          Datos
+        </a>
+      </nav>
+      <div class="sidebar-foot">
+        <span id="sidebar-count">0 apuestas</span>
+        <span>Guardado en este navegador</span>
+      </div>
+    </aside>
+    <div id="scrim" class="scrim" hidden data-action="close-sidebar"></div>
+
+    <div class="content">
+      <div class="content-inner">
+        <header class="topbar">
+          <div class="topbar-left">
+            <button type="button" id="nav-toggle" class="icon-btn" aria-label="Abrir menú">
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            </button>
+            <div>
+              <h1 id="view-title">Panel</h1>
+              <p id="view-sub">Resultado, riesgo y curva de capital</p>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <div class="header-metric">
+              <span>Bankroll</span>
+              <strong id="header-bankroll">0,00 €</strong>
+            </div>
+            <div class="header-metric">
+              <span>Resultado</span>
+              <strong id="header-pl" class="flat">0,00 €</strong>
+            </div>
+            <button type="button" class="btn btn-primary" data-action="new">Nueva apuesta</button>
+          </div>
+        </header>
+
+        <div class="page" id="contenido">
+          <div id="preview-banner" class="banner" hidden>
+            <p>Vista previa. Estos datos no están guardados. Si creas o editas una apuesta, el conjunto visible sustituye al historial de este navegador.</p>
+            <div class="btn-row">
+              <button type="button" class="btn btn-primary" data-action="save-preview">Guardar</button>
+              <button type="button" class="btn btn-ghost" data-action="exit-preview">Volver</button>
+            </div>
+          </div>
+
+          <div id="filterbar" class="filterbar">
+            <label>Desde <input type="date" id="f-from"></label>
+            <label>Hasta <input type="date" id="f-to"></label>
+            <label>Deporte <select id="f-sport"></select></label>
+            <label>Tipo <select id="f-type"></select></label>
+            <label>Casa <select id="f-book"></select></label>
+            <label>Resultado
+              <select id="f-result">
+                <option value="">Todos</option>
+                <option value="won">Ganada</option>
+                <option value="lost">Perdida</option>
+                <option value="void">Nula</option>
+                <option value="cashout">Cashout</option>
+              </select>
+            </label>
+            <label class="grow">Buscar <input type="search" id="f-q" placeholder="Evento, competición o nota"></label>
+            <button type="button" class="btn btn-ghost" data-action="clear-filters">Limpiar</button>
+          </div>
+          <p id="scope-line" class="scope-line"></p>
+
+          <section id="view-dashboard" class="view">
+            <div id="dashboard-empty" class="empty-state">
+              <span class="empty-mark" aria-hidden="true"></span>
+              <h2>Todavía no hay apuestas</h2>
+              <p>Registra la primera o abre una demostración para ver la curva, el yield y el drawdown.</p>
+              <div class="btn-row center">
+                <button type="button" class="btn btn-primary" data-action="new">Nueva apuesta</button>
+                <button type="button" class="btn btn-ghost" data-action="preview-demo">Ver demostración</button>
+              </div>
+            </div>
+            <div id="dashboard-body" class="stack" hidden>
+              <div id="kpi-rail" class="kpi-rail"></div>
+              <div class="split-charts">
+                <article class="card">
+                  <header class="card-head">
+                    <div>
+                      <h2>Curva de capital</h2>
+                      <p id="equity-note">Equity</p>
+                    </div>
+                  </header>
+                  <div class="chart-frame">
+                    <div class="chart-box" id="equity-box"><canvas id="chart-equity"></canvas></div>
+                    <p class="chart-empty" id="equity-empty" hidden>No hay apuestas en esta selección.</p>
+                  </div>
+                </article>
+                <article class="card">
+                  <header class="card-head">
+                    <div>
+                      <h2>Distribución</h2>
+                      <p>Por resultado</p>
+                    </div>
+                  </header>
+                  <div class="dist-layout">
+                    <div class="chart-frame">
+                      <div class="chart-box chart-box-sm" id="dist-box"><canvas id="chart-dist"></canvas></div>
+                      <p class="chart-empty" id="dist-empty" hidden>Sin resultados en la selección.</p>
+                    </div>
+                    <ul id="dist-legend" class="legend"></ul>
+                  </div>
+                </article>
+              </div>
+              <div class="split-2">
+                <article class="card">
+                  <header class="card-head"><h2>Por deporte</h2></header>
+                  <div id="table-sports"></div>
+                </article>
+                <article class="card">
+                  <header class="card-head"><h2>Por tipo de apuesta</h2></header>
+                  <div id="table-types"></div>
+                </article>
+              </div>
+              <article class="card">
+                <header class="card-head">
+                  <h2>Últimas apuestas</h2>
+                  <a href="#apuestas">Ver historial</a>
+                </header>
+                <div id="recent-bets"></div>
+              </article>
+            </div>
+          </section>
+
+          <section id="view-apuestas" class="view stack" hidden>
+            <article class="card">
+              <header class="card-head">
+                <h2>Historial</h2>
+                <p id="bets-count"></p>
+              </header>
+              <div id="bets-wrap"></div>
+            </article>
+          </section>
+
+          <section id="view-analisis" class="view stack" hidden>
+            <article class="card" id="streaks"></article>
+            <div class="split-2">
+              <article class="card">
+                <header class="card-head"><h2>Por casa de apuestas</h2></header>
+                <div id="table-books"></div>
+              </article>
+              <article class="card">
+                <header class="card-head"><h2>Por rango de cuota</h2></header>
+                <div id="table-odds"></div>
+              </article>
+            </div>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Resultado mensual</h2>
+                  <p>Beneficio neto de cada mes</p>
+                </div>
+              </header>
+              <div class="chart-frame">
+                <div class="chart-box" id="monthly-box"><canvas id="chart-monthly"></canvas></div>
+                <p class="chart-empty" id="monthly-empty" hidden>No hay meses que mostrar.</p>
+              </div>
+            </article>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Comparativa de períodos</h2>
+                  <p>Usa estas fechas. Deporte, tipo, casa, resultado y búsqueda siguen aplicados.</p>
+                </div>
+              </header>
+              <div class="compare-grid">
+                <fieldset>
+                  <legend>Período A</legend>
+                  <label>Desde <input type="date" id="cmp-a-from"></label>
+                  <label>Hasta <input type="date" id="cmp-a-to"></label>
+                </fieldset>
+                <fieldset>
+                  <legend>Período B</legend>
+                  <label>Desde <input type="date" id="cmp-b-from"></label>
+                  <label>Hasta <input type="date" id="cmp-b-to"></label>
+                </fieldset>
+              </div>
+              <div id="compare-table"></div>
+            </article>
+            <details class="defs">
+              <summary>Cómo se calculan las métricas</summary>
+              <dl>
+                <dt>Ganada</dt>
+                <dd>Stake × (cuota − 1).</dd>
+                <dt>Perdida</dt>
+                <dd>−stake.</dd>
+                <dt>Nula</dt>
+                <dd>Beneficio 0. Suma en el apostado y no entra en el win rate. No corta una racha.</dd>
+                <dt>Cashout</dt>
+                <dd>Importe cobrado − stake. Si el beneficio es positivo cuenta como acierto; si es negativo, como fallo; si es cero, queda fuera del win rate.</dd>
+                <dt>Yield</dt>
+                <dd>Beneficio neto / suma de stakes.</dd>
+                <dt>ROI</dt>
+                <dd>Beneficio neto / bankroll inicial. Con filtros, es el aporte de esa selección.</dd>
+                <dt>Cuota media</dt>
+                <dd>Media ponderada por stake. La nota muestra la media simple.</dd>
+                <dt>Drawdown</dt>
+                <dd>Mayor caída desde un pico del capital hasta el valle posterior. En una selección filtrada, la curva parte de cero.</dd>
+                <dt>Bankroll</dt>
+                <dd>El del encabezado es siempre el de la cuenta completa. El resto del panel respeta los filtros.</dd>
+              </dl>
+            </details>
+          </section>
+
+          <section id="view-datos" class="view stack" hidden>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Cuenta</h2>
+                  <p>La moneda solo cambia el formato. No convierte importes.</p>
+                </div>
+              </header>
+              <div class="settings-grid">
+                <label>Bankroll inicial <input id="set-bankroll" inputmode="decimal" autocomplete="off"></label>
+                <label>Moneda <select id="set-currency"></select></label>
+              </div>
+            </article>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Exportar</h2>
+                  <p>La columna beneficio del CSV es informativa. Al importar se recalcula.</p>
+                </div>
+              </header>
+              <div class="btn-row">
+                <button type="button" class="btn btn-ghost" data-action="export-csv-all">CSV completo</button>
+                <button type="button" class="btn btn-ghost" data-action="export-csv-selection">CSV de la selección</button>
+                <button type="button" class="btn btn-ghost" data-action="export-json">Copia JSON</button>
+                <button type="button" class="btn btn-ghost" data-action="export-template">Plantilla CSV</button>
+              </div>
+            </article>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Importar</h2>
+                  <p>CSV con coma, punto y coma o tabulador, o una copia JSON. Decimales con coma o punto.</p>
+                </div>
+              </header>
+              <div class="import-modes">
+                <label><input type="radio" name="import-mode" value="add" checked> Añadir</label>
+                <label><input type="radio" name="import-mode" value="replace"> Reemplazar historial</label>
+              </div>
+              <label class="dropzone" id="dropzone">
+                <input type="file" id="import-file" accept=".csv,.json,text/csv,application/json">
+                <span>Suelta un CSV o un JSON, o haz clic para elegirlo.</span>
+              </label>
+              <div id="import-report" class="report"></div>
+            </article>
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>Demostración</h2>
+                  <p>36 apuestas de ejemplo entre agosto y octubre de 2026. Puedes mirarlas sin guardarlas.</p>
+                </div>
+              </header>
+              <div class="btn-row">
+                <button type="button" class="btn btn-ghost" data-action="preview-demo">Ver sin guardar</button>
+                <button type="button" class="btn btn-ghost" data-action="load-demo">Añadir al historial</button>
+              </div>
+            </article>
+            <article class="card danger-zone">
+              <header class="card-head">
+                <div>
+                  <h2>Borrar historial</h2>
+                  <p>Elimina las apuestas de este navegador. El bankroll inicial y la moneda se conservan.</p>
+                </div>
+              </header>
+              <button type="button" class="btn danger-text" data-action="clear-bets">Borrar apuestas</button>
+            </article>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-action="close-modal"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">Nueva apuesta</h2>
+        <button type="button" class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button>
+      </div>
+      <form id="bet-form" novalidate>
+        <div class="form-grid">
+          <label class="field">Fecha
+            <input id="bet-date" data-field="date" type="date" required>
+            <span class="field-error" data-error-for="date"></span>
+          </label>
+          <label class="field">Deporte
+            <input id="bet-sport" data-field="sport" list="list-sports" maxlength="40" autocomplete="off" placeholder="Fútbol">
+            <span class="field-error" data-error-for="sport"></span>
+          </label>
+          <label class="field">Competición
+            <input id="bet-competition" data-field="competition" maxlength="60" autocomplete="off" placeholder="LaLiga, NBA, ATP">
+            <span class="field-error" data-error-for="competition"></span>
+          </label>
+          <label class="field">Casa de apuestas
+            <input id="bet-book" data-field="bookmaker" list="list-books" maxlength="40" autocomplete="off" placeholder="Bet365">
+            <span class="field-error" data-error-for="bookmaker"></span>
+          </label>
+          <label class="field span-2">Evento
+            <input id="bet-event" data-field="event" maxlength="140" autocomplete="off" placeholder="Real Madrid – Barcelona">
+            <span class="field-error" data-error-for="event"></span>
+          </label>
+          <label class="field">Tipo de apuesta
+            <input id="bet-type" data-field="betType" list="list-types" maxlength="40" autocomplete="off" placeholder="1X2">
+            <span class="field-error" data-error-for="betType"></span>
+          </label>
+          <label class="field">Resultado
+            <select id="bet-result" data-field="result">
+              <option value="">Selecciona</option>
+              <option value="won">Ganada</option>
+              <option value="lost">Perdida</option>
+              <option value="void">Nula</option>
+              <option value="cashout">Cashout</option>
+            </select>
+            <span class="field-error" data-error-for="result"></span>
+          </label>
+          <label class="field">Cuota
+            <input id="bet-odds" data-field="odds" inputmode="decimal" autocomplete="off" placeholder="1,85">
+            <span class="field-error" data-error-for="odds"></span>
+          </label>
+          <label class="field">Stake
+            <input id="bet-stake" data-field="stake" inputmode="decimal" autocomplete="off" placeholder="25,00">
+            <span class="field-error" data-error-for="stake"></span>
+          </label>
+          <label class="field span-2" id="field-cashout" hidden>Importe cobrado
+            <input id="bet-cashout" data-field="cashoutAmount" inputmode="decimal" autocomplete="off" placeholder="Incluye el stake">
+            <span class="field-error" data-error-for="cashoutAmount"></span>
+          </label>
+          <label class="field span-2">Notas
+            <textarea id="bet-notes" data-field="notes" maxlength="500" placeholder="Cierre, línea, motivo del stake"></textarea>
+            <span class="field-error" data-error-for="notes"></span>
+          </label>
+          <div class="preview span-2">
+            <span>Beneficio neto</span>
+            <strong id="profit-preview" class="preview-value flat">—</strong>
+          </div>
+          <div class="form-actions span-2">
+            <button type="button" class="btn danger-text" id="btn-delete-bet" data-action="delete-current" hidden>Borrar</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="confirm" class="modal" hidden>
+    <div class="modal-backdrop" data-action="confirm-no"></div>
+    <div class="confirm-panel" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">Confirmar</h2>
+      <p id="confirm-body"></p>
+      <div class="form-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" data-action="confirm-no">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirm-yes" data-action="confirm-yes">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden role="status"></div>
+  <datalist id="list-sports"></datalist>
+  <datalist id="list-types"></datalist>
+  <datalist id="list-books"></datalist>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/io.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+  </script>
+</body>
+</html>
