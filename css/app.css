@@ -422,24 +422,28 @@ th.sorted button { color: var(--text); }
 .result-cashout { color: #d4d4d4; }
 .field-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 500;
 }
 .kind-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 8px;
 }
 .kind-toggle label {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .kind-toggle input {
   position: absolute;
@@ -451,8 +455,27 @@ th.sorted button { color: var(--text); }
   border-color: var(--red);
   background: rgba(220, 38, 38, 0.12);
 }
-#bet-notes { min-height: 64px; }
-#modal .modal-panel { width: min(440px, 100%); }
+#bet-form .field {
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+#bet-form input,
+#bet-form textarea {
+  width: 100%;
+  font-size: 16px;
+  min-height: 48px;
+}
+#bet-notes { min-height: 88px; }
+#bet-form .field-error:empty { display: none; }
+#bet-form .preview span {
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#bet-form .preview-value { font-size: 20px; }
+#modal .modal-panel { width: min(420px, 100%); }
 
 .meter {
   display: block;
@@ -711,6 +734,17 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red-2); }
   .kpi-rail { grid-template-columns: 1fr; }
   .col-opt, .col-meter { display: none; }
   .kpi strong { font-size: 24px; }
+  .modal {
+    padding: 0;
+    align-items: end;
+  }
+  #modal .modal-panel {
+    width: 100%;
+    max-height: calc(100dvh - 8px);
+    border-radius: 16px 16px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  #modal .modal-head h2 { font-size: 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
