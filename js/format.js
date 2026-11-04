@@ -23,10 +23,11 @@
   }
 
   function money(n, currency) {
+    const code = currency || "PEN";
     const value = Number.isFinite(n) ? n : 0;
-    return new Intl.NumberFormat("es-ES", {
+    return new Intl.NumberFormat(code === "PEN" ? "es-PE" : "es-ES", {
       style: "currency",
-      currency: currency || "EUR",
+      currency: code,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);

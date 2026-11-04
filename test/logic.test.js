@@ -6,11 +6,13 @@ const path = require("path");
 require(path.join(__dirname, "..", "js", "format.js"));
 require(path.join(__dirname, "..", "js", "calc.js"));
 require(path.join(__dirname, "..", "js", "io.js"));
+require(path.join(__dirname, "..", "js", "storage.js"));
 require(path.join(__dirname, "..", "js", "demo.js"));
 
 const calc = global.BT.calc;
 const format = global.BT.format;
 const io = global.BT.io;
+const storage = global.BT.storage;
 const demo = global.BT.demo;
 
 function bet(partial) {
@@ -179,6 +181,32 @@ assert.strictEqual(demoSummary.losses, 6);
 approx(demoSummary.profit, 80);
 assert.strictEqual(calc.equityCurve(demoBets, demo.BANKROLL, "bankroll").at(-1).equity, demoSummary.bankroll);
 
+const november = [
+  bet({ id: "n1", date: "2026-11-02", buyIn: 40, cashOut: 70 }),
+  bet({ id: "n2", date: "2026-11-03", buyIn: 40, cashOut: 0 }),
+  bet({ id: "old", date: "2026-10-02", buyIn: 100, cashOut: 0 }),
+];
+const pocket = calc.available(november, 100, "2026-11");
+approx(pocket.profit, -10);
+approx(pocket.now, 90);
+approx(pocket.budget, 100);
+assert.strictEqual(pocket.count, 2);
+approx(calc.available([bet({ date: "2026-11-02", buyIn: 40, cashOut: 70 })], 100, "2026-11").now, 130);
+approx(calc.available([bet({ date: "2026-11-02", buyIn: 40, cashOut: 0 })], 100, "2026-11").now, 60);
+approx(calc.available([bet({ date: "2026-11-02", buyIn: 150, cashOut: 0 })], 100, "2026-11").now, -50);
+approx(calc.available([bet({ date: "2026-10-02", buyIn: 40, cashOut: 0 })], 100, "2026-11").now, 100);
+
+const migrated = storage.settingsFrom({ settings: { startingBankroll: 0, currency: "EUR" } });
+assert.strictEqual(migrated.currency, "PEN");
+assert.strictEqual(migrated.monthlyBudget, 100);
+const kept = storage.settingsFrom({ settings: { startingBankroll: 20, currency: "USD", monthlyBudget: 80 } });
+assert.strictEqual(kept.currency, "USD");
+assert.strictEqual(kept.monthlyBudget, 80);
+assert.strictEqual(storage.empty().settings.currency, "PEN");
+assert.strictEqual(storage.empty().settings.monthlyBudget, 100);
+
+const pen = format.money(100, "PEN");
+assert.ok(pen.indexOf("S/") !== -1, pen);
 const money = format.money(1234.5, "EUR");
 assert.ok(/1234,50|1\.234,50/.test(money), money);
 assert.ok(money.indexOf("€") !== -1);

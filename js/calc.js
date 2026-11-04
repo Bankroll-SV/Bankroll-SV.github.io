@@ -352,6 +352,25 @@
     return String(date || "").slice(0, 7);
   }
 
+  function available(bets, budget, month) {
+    const key = month || "";
+    const list = key
+      ? (bets || []).filter(function (b) { return String(b.date || "").slice(0, 7) === key; })
+      : (bets || []);
+    const summary = summarize(list, 0, { relativeDrawdown: true, keepEmpty: true });
+    const budgetCents = toCents(budget);
+    const safeBudget = Number.isFinite(budgetCents) ? budgetCents : 0;
+    const monthProfit = toCents(summary.profit);
+    const safeProfit = Number.isFinite(monthProfit) ? monthProfit : 0;
+    return {
+      month: key,
+      budget: fromCents(safeBudget),
+      profit: fromCents(safeProfit),
+      now: fromCents(safeBudget + safeProfit),
+      count: summary.count,
+    };
+  }
+
   function monthly(bets, startingBankroll) {
     const map = new Map();
     sortBets(bets || []).forEach(function (b) {
@@ -391,6 +410,7 @@
     groupBy: groupBy,
     streaks: streaks,
     inRange: inRange,
+    available: available,
     monthly: monthly,
   };
 

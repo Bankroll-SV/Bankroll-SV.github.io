@@ -12,7 +12,7 @@
 
   const state = {
     bets: [],
-    settings: { startingBankroll: 0, currency: "EUR" },
+    settings: { startingBankroll: 0, currency: "PEN", monthlyBudget: 100 },
     filters: blankFilters(),
     compare: null,
     view: "dashboard",
@@ -53,7 +53,25 @@
   }
 
   function currency() {
-    return state.settings.currency || "EUR";
+    return state.settings.currency || "PEN";
+  }
+
+  function currentMonth() {
+    return BT.format.todayISO().slice(0, 7);
+  }
+
+  function currentPocket() {
+    const budget = state.settings.monthlyBudget;
+    return BT.calc.available(state.bets, budget == null ? 100 : budget, currentMonth());
+  }
+
+  function savedSettings() {
+    const pocketBudget = state.settings.monthlyBudget;
+    return {
+      startingBankroll: state.settings.startingBankroll,
+      currency: state.settings.currency || "PEN",
+      monthlyBudget: pocketBudget == null ? 100 : pocketBudget,
+    };
   }
 
   function findBet(id) {
@@ -97,10 +115,7 @@
     try {
       BT.storage.save({
         version: 2,
-        settings: {
-          startingBankroll: state.settings.startingBankroll,
-          currency: state.settings.currency,
-        },
+        settings: savedSettings(),
         bets: state.bets,
       });
       return true;
@@ -214,10 +229,18 @@
     document.getElementById("scope-line").hidden = hideFilters;
 
     const cur = currency();
-    document.getElementById("header-bankroll").textContent = BT.format.money(global.bankroll, cur);
+    const pocket = currentPocket();
+    const nowEl = document.getElementById("header-now");
+    document.getElementById("header-now-label").textContent = "Ahora · " + BT.format.monthLabel(pocket.month);
+    nowEl.textContent = BT.format.money(pocket.now, cur);
+    nowEl.className = BT.format.tone(pocket.profit);
     const pl = document.getElementById("header-pl");
-    pl.textContent = BT.format.signedMoney(global.profit, cur);
-    pl.className = BT.format.tone(global.profit);
+    pl.textContent = BT.format.signedMoney(pocket.profit, cur);
+    pl.className = BT.format.tone(pocket.profit);
+    const emptyCash = document.getElementById("empty-cash");
+    if (emptyCash) {
+      emptyCash.textContent = "Este mes tienes " + BT.format.money(pocket.now, cur) + ": el presupuesto más el profit.";
+    }
 
     const total = state.bets.length;
     const noun = total === 1 ? "apuesta" : "apuestas";
@@ -229,14 +252,22 @@
     } else if (!filtered) {
       scope.textContent = total + " " + noun + " · historial completo";
     } else {
-      scope.textContent = scopedBets.length + " de " + total + " " + noun + " con los filtros actuales. El bankroll de arriba es el de la cuenta.";
+      scope.textContent = scopedBets.length + " de " + total + " " + noun + " con los filtros actuales. Ahora es el presupuesto más el profit de este mes.";
     }
   }
 
   function renderKpis(global, scoped, filtered) {
     const cur = currency();
     const start = state.settings.startingBankroll;
+    const pocket = currentPocket();
     const items = [
+      {
+        label: "Ahora",
+        title: "Presupuesto de " + BT.format.monthLabel(pocket.month) + " más el profit de las sesiones de ese mes. Buy in es salida y retiro es entrada. No cambia al filtrar.",
+        value: BT.format.money(pocket.now, cur),
+        tone: BT.format.tone(pocket.profit),
+        note: "presupuesto " + BT.format.money(pocket.budget, cur) + " + profit " + BT.format.signedMoney(pocket.profit, cur),
+      },
       {
         label: "Bankroll",
         title: "Bankroll inicial más el beneficio de todas las apuestas. No cambia al filtrar.",
@@ -647,8 +678,10 @@
 
   function syncSettings() {
     const bank = document.getElementById("set-bankroll");
+    const budget = document.getElementById("set-budget");
     const select = document.getElementById("set-currency");
     if (document.activeElement !== bank) bank.value = BT.format.plainNumber(state.settings.startingBankroll, 2);
+    if (document.activeElement !== budget) budget.value = BT.format.plainNumber(state.settings.monthlyBudget, 2);
     if (document.activeElement !== select) select.value = state.settings.currency;
   }
 
@@ -772,7 +805,7 @@
     }
     state.stash = {
       bets: state.bets.slice(),
-      settings: { startingBankroll: state.settings.startingBankroll, currency: state.settings.currency },
+      settings: savedSettings(),
     };
     state.preview = true;
     state.bets = BT.demo.build();
@@ -873,9 +906,10 @@
     if (mode === "replace") {
       state.bets = incoming;
       if (parsed.settings) {
-        const bank = BT.calc.parseNumber(parsed.settings.startingBankroll);
-        if (Number.isFinite(bank) && bank >= 0) state.settings.startingBankroll = Math.round(bank * 100) / 100;
-        if (BT.format.CURRENCIES.indexOf(parsed.settings.currency) !== -1) state.settings.currency = parsed.settings.currency;
+        const next = BT.storage.settingsFrom({ settings: parsed.settings });
+        state.settings.startingBankroll = next.startingBankroll;
+        state.settings.currency = next.currency;
+        state.settings.monthlyBudget = next.monthlyBudget;
       }
     } else {
       state.bets = state.bets.concat(incoming);
@@ -923,6 +957,18 @@
     render();
   }
 
+  function applyBudget() {
+    const el = document.getElementById("set-budget");
+    const n = BT.calc.parseNumber(el.value);
+    if (!Number.isFinite(n) || n < 0) {
+      el.value = BT.format.plainNumber(state.settings.monthlyBudget, 2);
+      return;
+    }
+    state.settings.monthlyBudget = Math.round(n * 100) / 100;
+    if (!state.preview) commit();
+    render();
+  }
+
   function readFiltersFromDom() {
     state.filters = {
       from: document.getElementById("f-from").value,
@@ -954,7 +1000,7 @@
     }
     const ok = await confirmDialog({
       title: "Borrar historial",
-      body: "Se eliminarán todas las apuestas de este navegador. El bankroll inicial y la moneda se conservan. Exporta un JSON antes si quieres una copia.",
+      body: "Se eliminarán todas las apuestas de este navegador. El presupuesto, el bankroll inicial y la moneda se conservan. Exporta un JSON antes si quieres una copia.",
       confirmLabel: "Borrar historial",
       danger: true,
     });
@@ -1032,6 +1078,7 @@
       document.getElementById(id).addEventListener("change", readCompareFromDom);
     });
     document.getElementById("set-bankroll").addEventListener("change", applyBankroll);
+    document.getElementById("set-budget").addEventListener("change", applyBudget);
     document.getElementById("set-currency").addEventListener("change", function (event) {
       state.settings.currency = event.target.value;
       if (!state.preview) commit();

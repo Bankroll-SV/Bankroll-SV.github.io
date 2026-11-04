@@ -64,13 +64,13 @@
             </div>
           </div>
           <div class="topbar-right">
-            <div class="header-metric">
-              <span>Bankroll</span>
-              <strong id="header-bankroll">0,00 €</strong>
+            <div class="header-metric now">
+              <span id="header-now-label">Ahora</span>
+              <strong id="header-now" class="flat">S/ 100.00</strong>
             </div>
             <div class="header-metric">
-              <span>Resultado</span>
-              <strong id="header-pl" class="flat">0,00 €</strong>
+              <span>Profit del mes</span>
+              <strong id="header-pl" class="flat">S/ 0.00</strong>
             </div>
             <button type="button" class="btn btn-primary" data-action="new">Nueva apuesta</button>
           </div>
@@ -112,6 +112,7 @@
             <div id="dashboard-empty" class="empty-state">
               <span class="empty-mark" aria-hidden="true"></span>
               <h2>Todavía no hay apuestas</h2>
+              <p id="empty-cash"></p>
               <p>Registra la primera o abre una demostración para ver la curva, el yield y el drawdown.</p>
               <div class="btn-row center">
                 <button type="button" class="btn btn-primary" data-action="new">Nueva apuesta</button>
@@ -223,8 +224,10 @@
                 <dd>Profit o loss neto / bankroll inicial. Con filtros, es el aporte de esa selección.</dd>
                 <dt>Drawdown</dt>
                 <dd>Mayor caída desde un pico del capital hasta el valle posterior. En una selección filtrada, la curva parte de cero.</dd>
+                <dt>Ahora</dt>
+                <dd>Presupuesto del mes más el profit de ese mes. El profit es la suma de retiro menos buy in. El mes siguiente vuelve a empezar en el presupuesto. No cambia al filtrar.</dd>
                 <dt>Bankroll</dt>
-                <dd>El del encabezado es siempre el de la cuenta completa. El resto del panel respeta los filtros.</dd>
+                <dd>Bankroll inicial más el profit de todo el historial. No cambia al filtrar.</dd>
               </dl>
             </details>
           </section>
@@ -234,10 +237,11 @@
               <header class="card-head">
                 <div>
                   <h2>Cuenta</h2>
-                  <p>La moneda solo cambia el formato. No convierte importes.</p>
+                  <p>Cada mes parte del presupuesto. La moneda solo cambia el formato y no convierte importes.</p>
                 </div>
               </header>
               <div class="settings-grid">
+                <label>Presupuesto del mes <input id="set-budget" inputmode="decimal" autocomplete="off"></label>
                 <label>Bankroll inicial <input id="set-bankroll" inputmode="decimal" autocomplete="off"></label>
                 <label>Moneda <select id="set-currency"></select></label>
               </div>
