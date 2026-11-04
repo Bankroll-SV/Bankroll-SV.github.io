@@ -100,7 +100,7 @@
     if (!bet.date || !parseDate(bet.date)) errors.date = "Indica una fecha válida.";
     if (!String(bet.title || "").trim()) errors.title = "Indica un título.";
     if (KINDS.indexOf(bet.kind) === -1) errors.kind = "Elige casino o poker.";
-    if (!Number.isFinite(bet.buyIn) || bet.buyIn <= 0) errors.buyIn = "El buy in debe ser mayor que 0.";
+    if (!Number.isFinite(bet.buyIn) || bet.buyIn < 0) errors.buyIn = "El buy in debe ser cero o más.";
     if (!Number.isFinite(bet.cashOut) || bet.cashOut < 0) errors.cashOut = "El retiro debe ser cero o más.";
     return errors;
   }

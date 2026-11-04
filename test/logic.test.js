@@ -68,11 +68,21 @@ assert.strictEqual(prepared.bet.kind, "poker");
 assert.strictEqual(prepared.bet.buyIn, 100.5);
 assert.strictEqual(calc.profit(prepared.bet), -20.5);
 
-const bad = calc.prepareBet({ date: "2026-01-01", title: "", kind: "deportes", buyIn: 0, cashOut: -1 });
+const bad = calc.prepareBet({ date: "2026-01-01", title: "", kind: "deportes", buyIn: -1, cashOut: -1 });
 assert.ok(bad.errors.title);
 assert.ok(bad.errors.kind);
 assert.ok(bad.errors.buyIn);
 assert.ok(bad.errors.cashOut);
+
+const freeroll = calc.prepareBet({ date: "2026-11-04", title: "Freeroll", kind: "poker", buyIn: 0, cashOut: 25 });
+assert.deepStrictEqual(freeroll.errors, {});
+assert.strictEqual(freeroll.bet.buyIn, 0);
+assert.strictEqual(calc.profit(freeroll.bet), 25);
+assert.strictEqual(calc.outcomeKey(freeroll.bet), "profit");
+const bubble = calc.prepareBet({ date: "2026-11-04", title: "Freeroll", kind: "poker", buyIn: "0", cashOut: "0" });
+assert.deepStrictEqual(bubble.errors, {});
+assert.strictEqual(calc.outcomeKey(bubble.bet), "even");
+approx(calc.available([freeroll.bet], 100, "2026-11").now, 125);
 
 const sample = [
   bet({ id: "1", date: "2026-10-01", buyIn: 50, cashOut: 100, createdAt: "2026-10-01T12:00:00.000Z" }),
@@ -154,9 +164,11 @@ const missing = io.parseCsv("fecha;titulo\n2026-01-01;Solo\n");
 assert.strictEqual(missing.bets.length, 0);
 assert.ok(/Faltan columnas/.test(missing.errors[0].message));
 
-const skipped = io.parseCsv("fecha;titulo;modalidad;buy_in;retiro\n2026-01-01;Mesa;poker;0;10\n2026-01-02;Mesa;poker;10;20\n");
-assert.strictEqual(skipped.bets.length, 1);
+const skipped = io.parseCsv("fecha;titulo;modalidad;buy_in;retiro\n2026-01-01;Freeroll;poker;0;10\n2026-01-02;Mesa;poker;10;20\n2026-01-03;Mesa;poker;-1;10\n");
+assert.strictEqual(skipped.bets.length, 2);
 assert.strictEqual(skipped.errors.length, 1);
+assert.strictEqual(skipped.bets[0].buyIn, 0);
+assert.strictEqual(calc.profit(skipped.bets[0]), 10);
 
 const backup = io.parseBackup(io.toBackup({
   settings: { startingBankroll: 500, currency: "USD" },
